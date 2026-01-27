@@ -11,13 +11,14 @@ Use:
 			-append only
 			-CSV
 			-daily snapshot of current system table, which presents 1 row per episode 
-		-silver = 
+		-silver 
 			-de-duplicated 
 				-one row per episode representing latest episode data 
 				-don't retain in-episode historical changes at this level - this will be done at gold level via SCD2
 			-cleaned
 				-standardise column name format	
 				-trim empty characters
+			-schema validation
 			
 		-gold - produce fact/dimension tables for episodes/spells. 
 			-episodes
