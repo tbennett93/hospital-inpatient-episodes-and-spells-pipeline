@@ -1,0 +1,2 @@
+spell ID,episode_id,patient_id,Patient Forename,Patient Surname,Patient DOB,Episode Start Date,Episode_End_Date,ward,Ward Name,consultant,dicharge_dttm,last_updated_ts,Developer Comment
+S001,E001,P001,John,Smith,01/01/1980,01/01/2026,03/01/2026,A1,Daisy Ward,S.Smith  ,03/01/2026,03/01/2026 11:15,spell discharged

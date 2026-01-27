@@ -1,0 +1,4 @@
+spell ID,episode_id,patient_id,Patient Forename,Patient Surname,Patient DOB,Episode Start Date,Episode_End_Date,ward,Ward Name,consultant,dicharge_dttm,last_updated_ts,Developer Comment
+S001,E001,P001,John,Smith,01/01/1980,01/01/2026,,A1,Daisy Ward,A.Turner,,02/01/2026 11:15,Amendment made to consultant
+S002,E002,P002,Jane,Doe,,01/01/2026,02/01/2026,A2,Catterpillar Ward,P.Jones,,02/01/2026 14:40,episode ended
+S002,E003,P002,Jane,Doe,,02/01/2026,,A2,Catterpillar Ward,P.Jones,,02/01/2026 14:40,"new episode, same spell"
