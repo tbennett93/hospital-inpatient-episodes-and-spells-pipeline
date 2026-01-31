@@ -17,7 +17,7 @@ The pipeline is designed to:
 - **Processing / Querying:** Amazon Athena  
 - **Orchestration:** AWS Step Functions  
 - **Compute:** AWS Lambda (boto3)  
-- **Architecture Pattern:** Medallion (Bronze → Silver → Gold)
+- **Build Pattern:** Medallion (Bronze → Silver → Gold)
 
 ---
 
@@ -33,11 +33,12 @@ The pipeline is designed to:
 - Encapsulate complex transformation logic
 - Reusable across CTAS operations
 - Separate business logic from physical table creation
+- Simplify CTAS operations within calling functions
 
 ### Why Drop-and-Rebuild
 - Source system provides **snapshots**, not change logs
 - Table sizes do not justify incremental complexity
-- Deterministic rebuilds simplify correctness guarantees
+- Rebuilds simplify correctness guarantees
 
 ---
 
@@ -46,7 +47,7 @@ The pipeline is designed to:
 ### Clinical Concepts
 - Patients are admitted
 - Admissions consist of one or more **episodes**
-- Episodes may change while active
+- Episodes may change while active - we always want to report the most recent version of the truth
 - Once discharged, episode records are immutable
 - A **spell** represents a continuous inpatient stay across episodes
 
@@ -62,7 +63,8 @@ Raw ingestion layer.
 - Source-system snapshot (1 row per episode)
 - CSV → Parquet conversion
 - Daily snapshot pushed by source system
-- No business logic applied
+- No business logic applied 
+- No schema enforcement - this is pushed downstream to silver
 
 **Purpose:** Preserve raw history and source fidelity.
 
@@ -124,12 +126,11 @@ Analytical fact and dimension tables.
 **Why SCD1 (not SCD2):**
 - Silver already represents the most recent episode state
 - Historical episode changes are not retained at silver
-- SCD2 would add complexity without analytical benefit
+- SCD2 would add complexity without much analytical benefit
 
-**Why Consultant is a Dimension (but minimal):**
+**Why Consultant is not a Dimension:**
 - Source system only provides a consultant identifier
 - No additional attributes available
-- Retained for relational consistency
 
 ---
 
@@ -150,6 +151,8 @@ Analytical fact and dimension tables.
 - Alert on empty source tables
 - Allow pipeline continuation when no data found (graceful S3 cleanup)
 - Improve Athena failure reporting in Step Functions
+- Consider SCD2s
+- Consider building into DW (reshift)
 
 ---
 
@@ -161,7 +164,6 @@ Analytical fact and dimension tables.
   - Analytical clarity
   - Downstream BI modelling
 - SCD1 dimensions can be derived entirely from Silver
-- No cloud data warehouse required at current scale
 
 ---
 
