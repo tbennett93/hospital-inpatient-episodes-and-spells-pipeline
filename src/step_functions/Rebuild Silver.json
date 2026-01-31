@@ -1,0 +1,46 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Drop hospital_date.silver_episodes",
+  "States": {
+    "Drop hospital_date.silver_episodes": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Arguments": {
+        "QueryString": "drop table if exists hospital_data.silver_episodes",
+        "WorkGroup": "primary",
+        "ResultConfiguration": {
+          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-bronze-to-silver/"
+        }
+      },
+      "Assign": {
+        "QueryExecutionId": "drop_silver_episodes"
+      },
+      "Next": "Delete Old S3 Table Files and Rebuild SIlver Table Using CTAS"
+    },
+    "Delete Old S3 Table Files and Rebuild SIlver Table Using CTAS": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:rebuild-silver-table:$LATEST",
+        "Payload": "{% $states.input %}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "End": true
+    }
+  },
+  "QueryLanguage": "JSONata"
+}

@@ -1,0 +1,299 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Drop hospital_date.gold_episodes",
+  "States": {
+    "Drop hospital_date.gold_episodes": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Arguments": {
+        "QueryString": "drop table if exists hospital_data.gold_episodes",
+        "WorkGroup": "primary",
+        "ResultConfiguration": {
+          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+        }
+      },
+      "Assign": {
+        "QueryExecutionId": "drop_silver_episodes"
+      },
+      "Next": "Delete old gold_episodes table data"
+    },
+    "Delete old gold_episodes table data": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+        "Payload": {
+          "bucket": "hospital-inpatients-pipeline",
+          "prefix": "gold/episodes/"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Build gold_episodes table"
+    },
+    "Build gold_episodes table": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:CTAS-from-view:$LATEST",
+        "Payload": {
+          "view_database": "hospital_data",
+          "view_name": "vw_gold_episodes",
+          "table_database": "hospital_data",
+          "table_name": "gold_episodes",
+          "external_location": "s3://hospital-inpatients-pipeline/gold/episodes/",
+          "output_format": "parquet"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Drop hospital_date.gold_spells"
+    },
+    "Drop hospital_date.gold_spells": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Arguments": {
+        "QueryString": "drop table if exists hospital_data.gold_spells",
+        "WorkGroup": "primary",
+        "ResultConfiguration": {
+          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+        }
+      },
+      "Assign": {
+        "QueryExecutionId": "drop_silver_episodes"
+      },
+      "Next": "Delete old gold_spells table data"
+    },
+    "Delete old gold_spells table data": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+        "Payload": {
+          "bucket": "hospital-inpatients-pipeline",
+          "prefix": "gold/spells/"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Build gold_spells table"
+    },
+    "Build gold_spells table": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:CTAS-from-view:$LATEST",
+        "Payload": {
+          "view_database": "hospital_data",
+          "view_name": "vw_gold_spells",
+          "table_database": "hospital_data",
+          "table_name": "gold_spells",
+          "external_location": "s3://hospital-inpatients-pipeline/gold/spells/",
+          "output_format": "parquet"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Drop hospital_date.gold_wards"
+    },
+    "Drop hospital_date.gold_wards": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Arguments": {
+        "QueryString": "drop table if exists hospital_data.gold_wards",
+        "WorkGroup": "primary",
+        "ResultConfiguration": {
+          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+        }
+      },
+      "Assign": {
+        "QueryExecutionId": "drop_silver_episodes"
+      },
+      "Next": "Delete old gold_wards table data"
+    },
+    "Delete old gold_wards table data": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+        "Payload": {
+          "bucket": "hospital-inpatients-pipeline",
+          "prefix": "gold/wards/"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Build gold_wards table"
+    },
+    "Build gold_wards table": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:CTAS-from-view:$LATEST",
+        "Payload": {
+          "view_database": "hospital_data",
+          "view_name": "vw_gold_wards",
+          "table_database": "hospital_data",
+          "table_name": "gold_wards",
+          "external_location": "s3://hospital-inpatients-pipeline/gold/wards/",
+          "output_format": "parquet"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Drop hospital_date.gold_patients"
+    },
+    "Drop hospital_date.gold_patients": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Arguments": {
+        "QueryString": "drop table if exists hospital_data.gold_patients",
+        "WorkGroup": "primary",
+        "ResultConfiguration": {
+          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+        }
+      },
+      "Assign": {
+        "QueryExecutionId": "drop_silver_episodes"
+      },
+      "Next": "Delete old gold_patients table data"
+    },
+    "Delete old gold_patients table data": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+        "Payload": {
+          "bucket": "hospital-inpatients-pipeline",
+          "prefix": "gold/patients/"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Build gold_patients table"
+    },
+    "Build gold_patients table": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:CTAS-from-view:$LATEST",
+        "Payload": {
+          "view_database": "hospital_data",
+          "view_name": "vw_gold_patients",
+          "table_database": "hospital_data",
+          "table_name": "gold_patients",
+          "external_location": "s3://hospital-inpatients-pipeline/gold/patients/",
+          "output_format": "parquet"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "End": true
+    }
+  },
+  "QueryLanguage": "JSONata"
+}
