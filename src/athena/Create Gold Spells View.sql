@@ -1,6 +1,4 @@
-CREATE table IF NOT EXISTS hospital_data.gold_Spells
-    WITH (format='PARQUET', external_location='s3://hospital-inpatients-pipeline/gold/spells') AS
-    
+create view hospital_data.vw_gold_spells as
 with episode_level_data as (
 SELECT
   spell_id,
@@ -12,7 +10,7 @@ SELECT
   row_number() over (partition by spell_id order by episode_start_date desc)  as rn,
   first_value(episode_start_date) over (partition by spell_id order by episode_start_date) as admission_date
 FROM
-  silver_episodes
+  hospital_data.silver_episodes
   
  )
  

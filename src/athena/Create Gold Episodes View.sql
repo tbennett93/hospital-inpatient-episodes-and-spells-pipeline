@@ -1,5 +1,4 @@
-CREATE table IF NOT EXISTS hospital_data.gold_episodes
-    WITH (format='PARQUET', external_location='s3://hospital-inpatients-pipeline/gold/episodes') AS
+create view hospital_data.vw_gold_episodes as 
 SELECT
   spell_id,
   episode_id,
@@ -12,4 +11,4 @@ SELECT
   row_number() over (partition by spell_id order by episode_start_date ) as episode_order,
   case when row_number() over (partition by spell_id order by episode_start_date desc) = 1 then 'Y' else 'N' end as is_most_recent_episode
 FROM
-  silver_episodes
+  hospital_data.silver_episodes
