@@ -1,0 +1,366 @@
+{
+  "Comment": "This state machine produces the gold reporting fact and dimensions tables from the silver-layer episodes table",
+  "StartAt": "Parallel",
+  "States": {
+    "Parallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Parallel (1)",
+          "States": {
+            "Parallel (1)": {
+              "Type": "Parallel",
+              "Branches": [
+                {
+                  "StartAt": "Drop hospital_date.gold_episodes",
+                  "States": {
+                    "Drop hospital_date.gold_episodes": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                      "Arguments": {
+                        "QueryString": "drop table if exists hospital_data.gold_episodes",
+                        "WorkGroup": "primary",
+                        "ResultConfiguration": {
+                          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+                        }
+                      },
+                      "Assign": {
+                        "QueryExecutionId": "drop_silver_episodes"
+                      },
+                      "Next": "Delete old gold_episodes table data"
+                    },
+                    "Delete old gold_episodes table data": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Output": "{% $states.result.Payload %}",
+                      "Arguments": {
+                        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+                        "Payload": {
+                          "bucket": "hospital-inpatients-pipeline",
+                          "prefix": "gold/episodes/"
+                        }
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2,
+                          "JitterStrategy": "FULL"
+                        }
+                      ],
+                      "Next": "LambdaGetSQLQuery_GoldEpisodes"
+                    },
+                    "LambdaGetSQLQuery_GoldEpisodes": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Output": "{% $states.result.Payload %}",
+                      "Arguments": {
+                        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:parseS3AthenaQueryForStepFunctions:$LATEST",
+                        "Payload": {
+                          "bucket": "hospital-inpatients-pipeline",
+                          "key": "Athena Queries/Gold Episodes Rebuild.sql"
+                        }
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2,
+                          "JitterStrategy": "FULL"
+                        }
+                      ],
+                      "Next": "Athena StartQueryExecution_RebuildGoldEpisodes"
+                    },
+                    "Athena StartQueryExecution_RebuildGoldEpisodes": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                      "Arguments": {
+                        "QueryString": "{% $string($states.input.sql) %}",
+                        "WorkGroup": "primary",
+                        "ResultConfiguration": {
+                          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+                        }
+                      },
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "Drop hospital_date.gold_spells",
+                  "States": {
+                    "Drop hospital_date.gold_spells": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                      "Arguments": {
+                        "QueryString": "drop table if exists hospital_data.gold_spells",
+                        "WorkGroup": "primary",
+                        "ResultConfiguration": {
+                          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+                        }
+                      },
+                      "Assign": {
+                        "QueryExecutionId": "drop_silver_episodes"
+                      },
+                      "Next": "Delete old gold_spells table data"
+                    },
+                    "Delete old gold_spells table data": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Output": "{% $states.result.Payload %}",
+                      "Arguments": {
+                        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+                        "Payload": {
+                          "bucket": "hospital-inpatients-pipeline",
+                          "prefix": "gold/spells/"
+                        }
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2,
+                          "JitterStrategy": "FULL"
+                        }
+                      ],
+                      "Next": "LambdaGetSQLQuery_GoldSpells"
+                    },
+                    "LambdaGetSQLQuery_GoldSpells": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Output": "{% $states.result.Payload %}",
+                      "Arguments": {
+                        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:parseS3AthenaQueryForStepFunctions:$LATEST",
+                        "Payload": {
+                          "bucket": "hospital-inpatients-pipeline",
+                          "key": "Athena Queries/Gold Spells Rebuild.sql"
+                        }
+                      },
+                      "Next": "Athena StartQueryExecution_RebuildGoldSpells"
+                    },
+                    "Athena StartQueryExecution_RebuildGoldSpells": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                      "Arguments": {
+                        "QueryString": "{% $string($states.input.sql) %}",
+                        "WorkGroup": "primary",
+                        "ResultConfiguration": {
+                          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+                        }
+                      },
+                      "End": true
+                    }
+                  }
+                }
+              ],
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "Parallel (2)",
+          "States": {
+            "Parallel (2)": {
+              "Type": "Parallel",
+              "End": true,
+              "Branches": [
+                {
+                  "StartAt": "Drop hospital_date.gold_wards",
+                  "States": {
+                    "Drop hospital_date.gold_wards": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                      "Arguments": {
+                        "QueryString": "drop table if exists hospital_data.gold_wards",
+                        "WorkGroup": "primary",
+                        "ResultConfiguration": {
+                          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+                        }
+                      },
+                      "Assign": {
+                        "QueryExecutionId": "drop_silver_episodes"
+                      },
+                      "Next": "Delete old gold_wards table data"
+                    },
+                    "Delete old gold_wards table data": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Output": "{% $states.result.Payload %}",
+                      "Arguments": {
+                        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+                        "Payload": {
+                          "bucket": "hospital-inpatients-pipeline",
+                          "prefix": "gold/wards/"
+                        }
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2,
+                          "JitterStrategy": "FULL"
+                        }
+                      ],
+                      "Next": "LambdaGetSQLQuery_GoldWards"
+                    },
+                    "LambdaGetSQLQuery_GoldWards": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Output": "{% $states.result.Payload %}",
+                      "Arguments": {
+                        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:parseS3AthenaQueryForStepFunctions:$LATEST",
+                        "Payload": {
+                          "bucket": "hospital-inpatients-pipeline",
+                          "key": "Athena Queries/Gold Wards Rebuild.sql"
+                        }
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2,
+                          "JitterStrategy": "FULL"
+                        }
+                      ],
+                      "Next": "Athena StartQueryExecution_RebuildGoldWards"
+                    },
+                    "Athena StartQueryExecution_RebuildGoldWards": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                      "Arguments": {
+                        "QueryString": "{% $string($states.input.sql) %}",
+                        "WorkGroup": "primary",
+                        "ResultConfiguration": {
+                          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+                        }
+                      },
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "Drop hospital_date.gold_patients",
+                  "States": {
+                    "Drop hospital_date.gold_patients": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                      "Arguments": {
+                        "QueryString": "drop table if exists hospital_data.gold_patients",
+                        "WorkGroup": "primary",
+                        "ResultConfiguration": {
+                          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+                        }
+                      },
+                      "Assign": {
+                        "QueryExecutionId": "drop_silver_episodes"
+                      },
+                      "Next": "Delete old gold_patients table data"
+                    },
+                    "Delete old gold_patients table data": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Output": "{% $states.result.Payload %}",
+                      "Arguments": {
+                        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+                        "Payload": {
+                          "bucket": "hospital-inpatients-pipeline",
+                          "prefix": "gold/patients/"
+                        }
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2,
+                          "JitterStrategy": "FULL"
+                        }
+                      ],
+                      "Next": "LambdaGetSQLQuery_GoldPatients"
+                    },
+                    "LambdaGetSQLQuery_GoldPatients": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Output": "{% $states.result.Payload %}",
+                      "Arguments": {
+                        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:parseS3AthenaQueryForStepFunctions:$LATEST",
+                        "Payload": {
+                          "bucket": "hospital-inpatients-pipeline",
+                          "key": "Athena Queries/Gold Patients Rebuild.sql"
+                        }
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2,
+                          "JitterStrategy": "FULL"
+                        }
+                      ],
+                      "Next": "Athena StartQueryExecution_RebuildGoldPatients"
+                    },
+                    "Athena StartQueryExecution_RebuildGoldPatients": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                      "Arguments": {
+                        "QueryString": "{% $string($states.input.sql) %}",
+                        "WorkGroup": "primary",
+                        "ResultConfiguration": {
+                          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-silver-to-gold/"
+                        }
+                      },
+                      "End": true
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "End": true
+    }
+  },
+  "QueryLanguage": "JSONata",
+  "TimeoutSeconds": 300
+}

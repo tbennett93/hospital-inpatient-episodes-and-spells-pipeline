@@ -1,0 +1,88 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Drop hospital_date.silver_episodes",
+  "States": {
+    "Drop hospital_date.silver_episodes": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Arguments": {
+        "QueryString": "drop table if exists hospital_data.silver_episodes",
+        "WorkGroup": "primary",
+        "ResultConfiguration": {
+          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-bronze-to-silver/"
+        }
+      },
+      "Assign": {
+        "QueryExecutionId": "drop_silver_episodes"
+      },
+      "Next": "Delete old table s3 data"
+    },
+    "Delete old table s3 data": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:delete-s3-folder-contents:$LATEST",
+        "Payload": {
+          "bucket": "hospital-inpatients-pipeline",
+          "prefix": "silver/episodes/"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Get SQL Query Text Rebuild Silver Episodes"
+    },
+    "Get SQL Query Text Rebuild Silver Episodes": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:294382260790:function:parseS3AthenaQueryForStepFunctions:$LATEST",
+        "Payload": {
+          "bucket": "hospital-inpatients-pipeline",
+          "key": "Athena Queries/Silver Episodes Rebuild.sql"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Athena StartQueryExecution_RebuildSilverEpisodes"
+    },
+    "Athena StartQueryExecution_RebuildSilverEpisodes": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Arguments": {
+        "QueryString": "{% $string($states.input.sql) %}",
+        "WorkGroup": "primary",
+        "ResultConfiguration": {
+          "OutputLocation": "s3://hospital-inpatients-pipeline/logs/step-functions/orchestrate-episodes-bronze-to-silver/"
+        }
+      },
+      "End": true
+    }
+  },
+  "QueryLanguage": "JSONata"
+}

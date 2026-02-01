@@ -1,0 +1,24 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation template for EventBridge Ruledaily-9am",
+  "Resources": {
+    "Rulebd9b7316": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Name": "daily-9am",
+        "ScheduleExpression": "cron(0 9 * * ? *)",
+        "State": "DISABLED",
+        "Description": "",
+        "EventBusName": "default",
+        "Targets": [{
+          "Id": "Id4c71c296-1693-4e59-834e-d7d0a7b7e9b5",
+          "Arn": {
+            "Fn::Sub": "arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:orchestrate-episodes-bronze-to-silver"
+          },
+          "RoleArn": "arn:aws:iam::294382260790:role/service-role/Amazon_EventBridge_Invoke_Step_Functions_168162531"
+        }]
+      }
+    }
+  },
+  "Parameters": {}
+}

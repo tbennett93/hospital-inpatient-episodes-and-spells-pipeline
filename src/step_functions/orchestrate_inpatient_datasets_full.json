@@ -1,0 +1,31 @@
+{
+  "Comment": "This state machine acts as a wrapper to execute the process to produce gold reporting tables from raw bronze data",
+  "StartAt": "Bronze->Silver",
+  "States": {
+    "Bronze->Silver": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Arguments": {
+        "StateMachineArn": "arn:aws:states:eu-west-2:294382260790:stateMachine:orchestrate-episodes-bronze-to-silver",
+        "Input": {
+          "StatePayload": "Hello from Step Functions!",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "Next": "Silver->Gold"
+    },
+    "Silver->Gold": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Arguments": {
+        "StateMachineArn": "arn:aws:states:eu-west-2:294382260790:stateMachine:orchestrate-episodes-silver-to-gold",
+        "Input": {
+          "StatePayload": "Hello from Step Functions!",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "End": true
+    }
+  },
+  "QueryLanguage": "JSONata"
+}

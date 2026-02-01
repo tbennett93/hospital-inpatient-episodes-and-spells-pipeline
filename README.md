@@ -7,16 +7,17 @@ Build an AWS-based data pipeline to transform **source-system inpatient episode 
 The pipeline is designed to:
 - Handle mutable episode records
 - Preserve clinical semantics (episodes vs spells)
-- Produce a clean relational model for downstream analytics
+- Produce a clean, relational model for downstream analytics
+- Execute deterministically with synchronous orchestration
 
 ---
 
 ## High-Level Architecture
 
 - **Storage:** Amazon S3  
-- **Processing / Querying:** Amazon Athena  
+- **Query Engine:** Amazon Athena  
 - **Orchestration:** AWS Step Functions  
-- **Compute:** AWS Lambda (boto3)  
+- **Compute / Glue Logic:** AWS Lambda (boto3)  
 - **Build Pattern:** Medallion (Bronze → Silver → Gold)
 
 ---
@@ -26,19 +27,20 @@ The pipeline is designed to:
 ### Why Athena
 - Serverless with minimal operational overhead
 - Native integration with S3
-- Strong support for CTAS and analytical SQL
+- Strong support for CTAS-based table builds
 - Well-suited for moderate-sized healthcare datasets
 
-### Why Views
-- Encapsulate complex transformation logic
-- Reusable across CTAS operations
-- Separate business logic from physical table creation
-- Simplify CTAS operations within calling functions
+### Why SQL-in-S3
+- Transformation logic stored as versioned `.sql` files in S3
+- Step Functions dynamically pull SQL text at runtime
+- Keeps orchestration separate from business logic
+- Enables reuse across Silver and Gold pipelines
 
 ### Why Drop-and-Rebuild
 - Source system provides **snapshots**, not change logs
 - Table sizes do not justify incremental complexity
-- Rebuilds simplify correctness guarantees
+- Rebuilds provide strong correctness guarantees
+- Enables deterministic, idempotent runs
 
 ---
 
@@ -47,7 +49,7 @@ The pipeline is designed to:
 ### Clinical Concepts
 - Patients are admitted
 - Admissions consist of one or more **episodes**
-- Episodes may change while active - we always want to report the most recent version of the truth
+- Episodes may change while active
 - Once discharged, episode records are immutable
 - A **spell** represents a continuous inpatient stay across episodes
 
@@ -60,11 +62,10 @@ The pipeline is designed to:
 Raw ingestion layer.
 
 - Append-only
-- Source-system snapshot (1 row per episode)
+- Source-system daily snapshot (1 row per episode)
 - CSV → Parquet conversion
-- Daily snapshot pushed by source system
-- No business logic applied 
-- No schema enforcement - this is pushed downstream to silver
+- No business logic applied
+- No schema enforcement (deferred to Silver)
 
 **Purpose:** Preserve raw history and source fidelity.
 
@@ -72,24 +73,25 @@ Raw ingestion layer.
 
 ### Silver
 
-Cleaned, validated, and de-duplicated layer.
+Cleaned, validated, and de-duplicated layer representing the **current truth**.
 
 **Transformations:**
 - One row per episode (latest version only)
-- No in-episode historical tracking at this level
+- No intra-episode historical tracking
 - Standardised column naming
 - Trimmed whitespace
-- Schema validation
+- Schema validation:
   - Explicit date parsing
-  - Fail hard on unexpected values
+  - Fail-fast on unexpected values
 
 **Load Pattern:**
-- Full rebuild daily
-- Triggered via EventBridge (08:00)
-- Incremental loading not justified by data volume
+- Full rebuild
+- Triggered daily via EventBridge
+- Synchronous Athena execution via Step Functions
+- Drop + CTAS executed in a single Athena query per dataset
 
 **Rationale:**  
-Silver represents the **current truth** for each episode.
+Silver represents the authoritative, most recent state of each episode.
 
 ---
 
@@ -101,17 +103,16 @@ Analytical fact and dimension tables.
 
 **Episodes**
 - One row per episode
-- Latest episode in spell flag
+- Latest-episode-in-spell flag
 - Discharged flag
 - Episode number within spell
-- Represents most recent episode state
 
 **Spells**
 - One row per spell
 - Derived from episode grouping
 - Length of stay calculated from:
   - First episode start date
-  - Last episode discharge date
+  - Final episode discharge date
 
 ---
 
@@ -125,34 +126,36 @@ Analytical fact and dimension tables.
 
 **Why SCD1 (not SCD2):**
 - Silver already represents the most recent episode state
-- Historical episode changes are not retained at silver
-- SCD2 would add complexity without much analytical benefit
+- Historical episode changes are not retained at Silver
+- SCD2 would add complexity without analytical benefit
 
-**Why Consultant is not a Dimension:**
-- Source system only provides a consultant identifier
-- No additional attributes available
+**Why Consultant is limited:**
+- Source system provides only a consultant identifier
+- No additional descriptive attributes available
 
 ---
 
 ## Orchestration
 
-- Step Functions coordinate:
-  - S3 cleanup
-  - Athena CTAS execution
-  - Dependency ordering
-- Lambda functions are modularised for reuse
-- Athena execution status is surfaced to Step Functions
+- EventBridge triggers the daily pipeline
+- Step Functions orchestrate:
+  - Bronze → Silver → Gold dependency ordering
+  - Synchronous Athena query execution
+  - Parallel execution of independent Gold pipelines
+- SQL is retrieved from S3 at runtime
+- Lambda functions are modularised and reused across layers
+- Athena execution status is surfaced directly to Step Functions
 
 ---
 
 ## Current Limitations / TODO
 
-- Add async waits for Athena where required
-- Alert on empty source tables
-- Allow pipeline continuation when no data found (graceful S3 cleanup)
-- Improve Athena failure reporting in Step Functions
-- Consider SCD2s
-- Consider building into DW (reshift)
+- Alert on empty or missing source snapshots
+- Graceful handling when no new data is present
+- Improve Athena error reporting and failure context
+- Add monitoring and alerting (CloudWatch)
+- Evaluate SCD2 support if analytical needs evolve
+- Consider migrating Gold layer into Redshift
 
 ---
 
@@ -163,11 +166,11 @@ Analytical fact and dimension tables.
   - Reusability
   - Analytical clarity
   - Downstream BI modelling
-- SCD1 dimensions can be derived entirely from Silver
+- SCD1 dimensions can be fully derived from Silver
 
 ---
 
 ## Dependencies
 
-- `pandas`
 - `boto3`
+- `pandas`
