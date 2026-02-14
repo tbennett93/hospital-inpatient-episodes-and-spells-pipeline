@@ -1,4 +1,4 @@
-# Inpatient Episodes & Spells Data Pipeline (WIP)
+# Inpatient Episodes & Spells Data Pipeline
 
 ## Purpose
 
