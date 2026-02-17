@@ -17,8 +17,9 @@ The pipeline is designed to:
 - **Storage:** Amazon S3  
 - **Query Engine:** Amazon Athena  
 - **Orchestration:** AWS Step Functions  
-- **Compute / Glue Logic:** AWS Lambda (boto3)  
+- **Compute :** AWS Lambda (boto3)  
 - **Build Pattern:** Medallion (Bronze → Silver → Gold)
+- **Schedule/Trigger** Event Bridge - daily time-of-day schedule
 
 ---
 
@@ -30,11 +31,17 @@ The pipeline is designed to:
 - Strong support for CTAS-based table builds
 - Well-suited for moderate-sized healthcare datasets
 
+### Why Step Functions
+- Native 'sync' options for Athena async operations 
+- Enforces the ability to only start one task after another has completed
+- Athena DROP TABLE statements will always run before the rebuild CTAS statement
+
 ### Why SQL-in-S3
 - Transformation logic stored as versioned `.sql` files in S3
-- Step Functions dynamically pull SQL text at runtime
+- Step Functions dynamically pull SQL text at runtime, which keeps step functions tidy and readable
 - Keeps orchestration separate from business logic
 - Enables reuse across Silver and Gold pipelines
+
 
 ### Why Drop-and-Rebuild
 - Source system provides **snapshots**, not change logs
@@ -66,6 +73,7 @@ Raw ingestion layer.
 - CSV → Parquet conversion
 - No business logic applied
 - No schema enforcement (deferred to Silver)
+- Triggered by wrapper state machine that executes this then silver/gold
 
 **Purpose:** Preserve raw history and source fidelity.
 
@@ -125,8 +133,7 @@ Analytical fact and dimension tables.
 - **Consultant**
 
 **Why SCD1 (not SCD2):**
-- Silver already represents the most recent episode state
-- Historical episode changes are not retained at Silver
+- Historical versions of dimensions are not required for reporting
 - SCD2 would add complexity without analytical benefit
 
 **Why Consultant is limited:**
